@@ -1,8 +1,10 @@
 from rest_framework import serializers
 import re
-from django_redis import get_redis_connection
+
 from rest_framework_jwt.settings import api_settings
 
+from django_redis import get_redis_connection
+from goods.models import SKU
 from .models import User, Address
 from celery_tasks.email.tasks import send_verify_email
 
@@ -181,3 +183,69 @@ class AddressTitleSerializer(serializers.ModelSerializer):
     class Meta:
         model = Address
         fields = ('title',)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+class UserBrowseHistorySerializer(serializers.Serializer):
+    """添加用户浏览记录序列化器"""
+
+    sku_id = serializers.IntegerField(label='sku_id', min_value=1)
+
+    #校验id是否合法
+    def validate_sku_id(self, value):
+        '''
+        校验单个字段
+        :param value: sukid
+        :return: value
+        '''
+
+        try:
+            SKU.objects.get(id=value)
+        except SKU.DoesNotExist:
+            raise serializers.ValidationError('无效sku-id')
+
+        return value
+
+
+    def create(self, validated_data):
+        """CreateAPIView在调用save()时调用的
+                             将用户的浏览记录的数据存储在redis
+                             """
+
+        # 读取当前登录用户的user_id
+        user_id = self.context['request'].user.id
+
+        sku_id = validated_data.get('sku_id')
+
+        redis_conn = get_redis_connection('history')
+
+        pl = redis_conn.pipeline()
+
+        # 去重
+        pl.lrem('history_%s' % user_id, 0, sku_id)
+
+        # 存储
+        pl.lpush('history_%s' % user_id, sku_id)
+
+        # 截取最前面的五个
+        pl.ltrim('history_%s' % user_id, 0, 4)
+
+        # 记得执行
+        pl.execute()
+
+        # 返回
+        return validated_data
+
+
+    
