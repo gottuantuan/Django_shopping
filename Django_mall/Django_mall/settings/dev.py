@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
     'goods.apps.GoodsConfig',#商品
     'contents.apps.ContentsConfig',# 主页广告
+    'orders.apps.OrdersConfig',
 
 ]
 

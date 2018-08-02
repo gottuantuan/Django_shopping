@@ -9,8 +9,10 @@ from .utils import QQOauth
 
 from rest_framework.response import Response
 from .exceptions import QQAPIException
-from . import serializer
+from . import serializers
 import logging
+
+from carts.utils import merge_cart_cookie_to_redis
 
 logger = logging.getLogger('django')
 
@@ -30,7 +32,7 @@ class QQAuthURLView(APIView):
 #
 class QQAuthUserView(GenericAPIView):
 
-    serializer_class = serializer.QQAuthUserSerializer
+    serializer_class = serializers.QQAuthUserSerializer
     def get(self, request):
         code = request.query_params.get('code')
         if code is None:
@@ -58,11 +60,13 @@ class QQAuthUserView(GenericAPIView):
             user = oauth_user.user  # OAuthQQUser模型对象取出user
             payload = jwt_payload_handler(user)
             token = jwt_encode_handler(payload)
-            return Response({
+            response = Response({
                 'token': token,
                 'user_id': user.id,
                 'username': user.username
             })
+            response = merge_cart_cookie_to_redis(request=request, response=response, user=user)
+            return response
 
     def post(self, request):
         """
@@ -81,12 +85,13 @@ class QQAuthUserView(GenericAPIView):
          # OAuthQQUser模型对象取出user
         payload = jwt_payload_handler(user)
         token = jwt_encode_handler(payload)
-        return Response({
+        response = Response({
             'token': token,
             'user_id': user.id,
             'username': user.username
         })
 
-
+        response = merge_cart_cookie_to_redis(request=request, response=response, user=user)
+        return  response
 
 

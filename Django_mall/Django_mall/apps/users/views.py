@@ -13,6 +13,33 @@ from django_redis import get_redis_connection
 from .models import User
 from . import serializers
 from . import constants
+from rest_framework_jwt.views import ObtainJSONWebToken
+from carts.utils import merge_cart_cookie_to_redis
+
+
+class UserAuthorizeView(ObtainJSONWebToken):
+    """重写账号登录系统"""
+    def post(self, request, *args, **kwargs):
+        """重写父类的post方法：重写之后，对于用户的校验，查询，响应都不需要我们再次写代码
+             只需要专注于自己新加的业务逻辑即可
+             """
+        # 得到父类处理登录请求后的响应对象
+        response = super(UserAuthorizeView, self).post(request, *args, **kwargs)
+        # 得到父类的序列化器对象
+        serializer = self.get_serializer(data=request.data)
+
+        if serializer.is_valid():
+            #得到校验之后的用户信息
+            user = serializer.object.get('user') or request.user
+            #实现合并
+            response = merge_cart_cookie_to_redis(request=request, user=user, response=response)
+
+        return response
+
+
+
+
+
 
 
 class UserView(CreateAPIView):
